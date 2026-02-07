@@ -105,9 +105,13 @@
         .pdf-report { background: white; padding: 20px; color: black; width: 800px; }
         .pdf-title { border-bottom: 2px solid #1f5eff; padding-bottom: 10px; font-size: 24px; margin-bottom: 20px; }
         .pdf-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        
+        /* 關鍵：防止分頁裁切 */
+        .pdf-table tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+        
         .pdf-table td { padding: 0; vertical-align: stretch; border-bottom: 1px solid #f0f0f0; }
         .pdf-col-tree { width: 65%; display: flex; align-items: stretch; }
-        .pdf-col-note { width: 35%; padding: 4px; vertical-align: middle; }
+        .pdf-col-note { width: 35%; padding: 4px 8px; vertical-align: middle; }
         
         .pdf-gutter { display: flex; height: auto; }
         .pdf-indent-unit { width: 20px; display: flex; justify-content: center; position: relative; }
@@ -115,10 +119,11 @@
         .pdf-h-line { position: absolute; top: 50%; width: 10px; height: 1px; background: #ccc; left: 50%; }
         .pdf-l-corner { position: absolute; top: 0; bottom: 50%; width: 1px; background: #ccc; left: 50%; }
         
-        .pdf-node-content { display: flex; align-items: center; padding: 6px 4px; gap: 6px; flex: 1; }
+        .pdf-node-content { display: flex; align-items: center; padding: 8px 4px; gap: 6px; flex: 1; font-size: 11px; }
         .pdf-note-box { 
-            background: #fffbe6; border: 1px solid #ffe58f; padding: 6px; border-radius: 4px; 
+            background: #fffbe6; border: 1px solid #ffe58f; padding: 6px 10px; border-radius: 4px; 
             font-size: 11px; color: #854d0e; word-break: break-all; width: 100%; box-sizing: border-box;
+            line-height: 1.4;
         }
 
         input[type="file"] { display: none; }
@@ -159,7 +164,6 @@
       </section>
     </main>
 
-    <!-- 隱藏的 PDF 渲染容器 -->
     <div id="pdf-export-container" style="display:none;">
         <div id="pdf-report" class="pdf-report">
             <h1 class="pdf-title">檔案樹狀結構報告</h1>
@@ -278,11 +282,8 @@
                 const tr = document.createElement('tr');
                 const tdTree = document.createElement('td');
                 tdTree.className = 'pdf-col-tree';
-                
-                // Indent and Lines
                 const gutter = document.createElement('div');
                 gutter.className = 'pdf-gutter';
-                
                 prefixes.forEach((p, idx) => {
                     const unit = document.createElement('div');
                     unit.className = 'pdf-indent-unit';
@@ -291,7 +292,7 @@
                         line.className = 'pdf-v-line';
                         unit.appendChild(line);
                     } else if (idx === prefixes.length - 1) {
-                        const line = isLast ? document.createElement('div') : document.createElement('div');
+                        const line = document.createElement('div');
                         line.className = isLast ? 'pdf-l-corner' : 'pdf-v-line';
                         unit.appendChild(line);
                         const hLine = document.createElement('div');
@@ -300,11 +301,9 @@
                     }
                     gutter.appendChild(unit);
                 });
-
                 const content = document.createElement('div');
                 content.className = 'pdf-node-content';
                 content.innerHTML = `<span>${node.type === 'directory' ? '📁' : '📄'}</span><span style="${node.type === 'directory' ? 'font-weight:bold' : ''}">${node.name}</span>`;
-
                 tdTree.appendChild(gutter);
                 tdTree.appendChild(content);
                 tr.appendChild(tdTree);
@@ -337,7 +336,7 @@
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, useCORS: true, letterRendering: true },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['avoid-all'] }
+                pagebreak: { mode: ['css', 'legacy'] }
             };
             html2pdf().set(opt).from(element).save();
         };
