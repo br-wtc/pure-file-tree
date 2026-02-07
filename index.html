@@ -3,13 +3,16 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>檔案樹狀檢視與備註 (Pure Web)</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <title id="title-tag">檔案樹狀檢視與備註 (Pure Web)</title>
+    <!-- 引入支援中文的 Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            font-family: "Segoe UI", "Microsoft JhengHei", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Inter', 'Noto Sans TC', "Segoe UI", system-ui, -apple-system, sans-serif;
             color: #111827;
             background-color: #f5f6fb;
+            --primary: #1f5eff;
+            --line-color: #cbd5e1;
         }
 
         * { box-sizing: border-box; }
@@ -35,14 +38,14 @@
             display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
         }
 
-        .subtitle label, .subtitle button {
+        .subtitle label, .btn-lang {
             border: none; border-radius: 20px; background: rgba(255, 255, 255, 0.15);
-            color: #fff; padding: 0.2rem 0.9rem; font-size: 0.85rem; cursor: pointer; display: inline-block;
+            color: #fff; padding: 0.2rem 0.9rem; font-size: 0.85rem; cursor: pointer;
+            transition: 0.2s;
         }
+        .subtitle label:hover, .btn-lang:hover { background: rgba(255, 255, 255, 0.25); }
 
-        .subtitle label:hover, .subtitle button:hover { background: rgba(255, 255, 255, 0.25); }
-
-        main.layout { flex: 1; display: flex; gap: 1.25rem; padding: 1.25rem 2rem; align-items: stretch; flex-wrap: wrap; }
+        main.layout { flex: 1; display: flex; gap: 1.25rem; padding: 1.25rem 2rem; align-items: stretch; flex-wrap: wrap; overflow: hidden; }
 
         .panel {
             background: #fff; border-radius: 14px; box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
@@ -50,137 +53,198 @@
         }
 
         .tree-panel { max-width: 520px; }
-
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 1rem; }
         .panel-header h2 { margin: 0; font-size: 1.1rem; color: #0f172a; }
 
-        #treeContainer { flex: 1; overflow: auto; padding-right: 0.25rem; }
-
-        .tree { list-style: none; padding-inline-start: 0.75rem; margin: 0; }
-        .tree ul { list-style: none; padding-left: 1.1rem; margin: 0.15rem 0 0.25rem; }
-        .tree-node { margin-bottom: 0.35rem; }
+        #treeContainer { flex: 1; overflow: auto; padding: 10px; }
+        .tree, .tree ul { list-style: none; padding: 0; margin: 0; }
+        .tree-node { position: relative; }
 
         .tree-row {
-            display: flex; align-items: center; gap: 0.35rem; border-radius: 10px;
-            padding: 0.3rem 0.55rem; cursor: pointer; transition: background 0.2s, box-shadow 0.2s;
+            display: flex; align-items: stretch; border-radius: 8px;
+            cursor: pointer; transition: 0.2s; min-height: 32px;
         }
-        .tree-row:hover { background: rgba(37, 99, 235, 0.08); }
-        .tree-row.selected { background: rgba(59, 130, 246, 0.15); box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.3); }
+        .tree-row:hover { background: rgba(37, 99, 235, 0.05); }
+        .tree-row.selected { background: rgba(59, 130, 246, 0.1); }
 
-        .tree-row.has-note::after {
-            content: "備註"; font-size: 0.7rem; background: #fde047; color: #7c2d12;
-            padding: 0.1rem 0.35rem; border-radius: 999px; margin-left: auto;
-        }
+        .gutter { display: flex; flex-shrink: 0; }
+        .indent-unit { width: 22px; display: flex; align-items: stretch; }
+        .indent-unit svg { display: block; width: 100%; height: 100%; }
 
+        .node-content { display: flex; align-items: center; gap: 6px; padding: 4px 8px; flex: 1; overflow: hidden; }
         .tree-label { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-        .tree-icon {
-            width: 1.7rem; height: 1.35rem; display: inline-flex; align-items: center; justify-content: center;
-            background-repeat: no-repeat; background-position: center; background-size: contain; margin-right: 0.15rem;
-        }
-
+        .tree-icon { width: 1.4rem; height: 1.4rem; background-size: contain; background-repeat: no-repeat; background-position: center; flex-shrink: 0; }
+        
         .icon-folder { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M3 7.5h6.2c.5 0 .9.3 1.1.7l.5 1c.2.5.6.8 1.1.8H21c.6 0 1 .4 1 1v6.5c0 .8-.7 1.5-1.5 1.5h-17C2.7 19 2 18.3 2 17.5v-9C2 7.8 2.4 7.5 3 7.5Z' fill='%23facc15' stroke='%23d97706' stroke-width='1.5'/%3E%3Cpath d='M3 8.8h18' stroke='%23d97706' stroke-width='1.2'/%3E%3C/svg%3E"); }
-        .icon-file-default { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 3h7l5 5v12.5c0 .8-.7 1.5-1.5 1.5h-10C5.7 22 5 21.3 5 20.5v-16C5 3.7 5.7 3 6.5 3Z' fill='%23c7d2fe' stroke='%234f46e5' stroke-width='1.4'/%3E%3Cpath d='M13 3v5h5' stroke='%234f46e5' stroke-width='1.2'/%3E%3C/svg%3E"); }
+        .icon-file { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 3h7l5 5v12.5c0 .8-.7 1.5-1.5 1.5h-10C5.7 22 5 21.3 5 20.5v-16C5 3.7 5.7 3 6.5 3Z' fill='%23c7d2fe' stroke='%234f46e5' stroke-width='1.4'/%3E%3Cpath d='M13 3v5h5' stroke='%234f46e5' stroke-width='1.2'/%3E%3C/svg%3E"); }
 
-        .tree-toggle { border: none; background: transparent; color: #1d4ed8; cursor: pointer; font-size: 0.85rem; width: 1.5rem; }
-        .tree-node.collapsed > ul { display: none; }
+        .tree-toggle { width: 20px; border: none; background: transparent; cursor: pointer; color: var(--primary); font-size: 12px; display: flex; align-items: center; justify-content: center; z-index: 5; }
+        .collapsed + ul { display: none !important; }
 
-        .detail-panel { flex: 2 1 360px; }
+        .detail-panel { flex: 2 1 360px; padding: 1.5rem; }
         .placeholder { margin: 2rem 0; color: #94a3b8; text-align: center; }
         .detail-grid { display: flex; flex-direction: column; gap: 1rem; }
         .detail-row { display: flex; gap: 0.5rem; align-items: baseline; }
         .label { width: 90px; font-weight: 600; color: #475569; }
         .code { font-family: "Consolas", monospace; background: #f1f5f9; padding: 0.1rem 0.35rem; border-radius: 6px; word-break: break-all; }
-
-        textarea {
-            resize: vertical; border-radius: 10px; border: 1px solid #cbd5f5;
-            padding: 0.65rem; font-size: 1rem; font-family: inherit; background: #f8fafc;
-            min-height: 200px; transition: border 0.2s, background 0.2s;
-        }
+        textarea { width: 100%; resize: vertical; border-radius: 10px; border: 1px solid #cbd5f5; padding: 0.65rem; font-size: 1rem; min-height: 200px; background: #f8fafc; font-family: inherit; }
         textarea:focus { border-color: #2563eb; outline: none; background: #fff; }
 
-        button.primary { background: #2563eb; color: #fff; border-radius: 999px; border: 1px solid #2563eb; padding: 0.35rem 1.1rem; font-size: 0.9rem; cursor: pointer; }
+        button.primary { background: #2563eb; color: #fff; border-radius: 999px; border: none; padding: 0.5rem 1.5rem; cursor: pointer; font-weight: bold; }
 
-        /* PDF 輸出專用樣式 */
-        .pdf-report { background: white; padding: 20px; color: black; width: 800px; }
-        .pdf-title { border-bottom: 2px solid #1f5eff; padding-bottom: 10px; font-size: 24px; margin-bottom: 20px; }
-        .pdf-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-        
-        /* 關鍵：防止分頁裁切 */
-        .pdf-table tr { page-break-inside: avoid !important; break-inside: avoid !important; }
-        
-        .pdf-table td { padding: 0; vertical-align: stretch; border-bottom: 1px solid #f0f0f0; }
-        .pdf-col-tree { width: 65%; display: flex; align-items: stretch; }
-        .pdf-col-note { width: 35%; padding: 4px 8px; vertical-align: middle; }
-        
-        .pdf-gutter { display: flex; height: auto; }
-        .pdf-indent-unit { width: 20px; display: flex; justify-content: center; position: relative; }
-        .pdf-v-line { position: absolute; top: 0; bottom: 0; width: 1px; background: #ccc; left: 50%; }
-        .pdf-h-line { position: absolute; top: 50%; width: 10px; height: 1px; background: #ccc; left: 50%; }
-        .pdf-l-corner { position: absolute; top: 0; bottom: 50%; width: 1px; background: #ccc; left: 50%; }
-        
-        .pdf-node-content { display: flex; align-items: center; padding: 8px 4px; gap: 6px; flex: 1; font-size: 11px; }
-        .pdf-note-box { 
-            background: #fffbe6; border: 1px solid #ffe58f; padding: 6px 10px; border-radius: 4px; 
-            font-size: 11px; color: #854d0e; word-break: break-all; width: 100%; box-sizing: border-box;
-            line-height: 1.4;
+        /* --- PDF 下載專用樣式 --- */
+        @media print {
+            body { background: white !important; font-family: 'Noto Sans TC', sans-serif !important; }
+            header, .detail-panel, footer, .tree-toggle, label[for="dirInput"], .btn-lang { display: none !important; }
+            
+            main.layout { display: block; padding: 0; margin: 0; overflow: visible; }
+            .tree-panel { max-width: 100%; box-shadow: none; border: none; width: 100%; display: block !important; }
+            .panel-header { border-bottom: 2.5pt solid #1f5eff; margin-bottom: 15pt; }
+
+            .tree-row { 
+                border-bottom: 0.5pt solid #eee !important; 
+                page-break-inside: avoid !important;
+                background: transparent !important;
+                width: 100%;
+                display: flex !important;
+                align-items: stretch !important;
+                min-height: 32px;
+            }
+
+            .pdf-tag {
+                display: inline-block !important; 
+                width: 32pt; height: 13pt; border-radius: 2pt;
+                text-align: center; font-size: 7.5pt; line-height: 13pt; font-weight: bold;
+                border: 0.5pt solid #333 !important; margin-right: 8pt;
+            }
+            .tag-DIR { background: #FAD454 !important; }
+            .tag-IMG { background: #C4E0FC !important; color: #1e3a8a !important; }
+            .tag-DOC { background: #E0F2D9 !important; color: #166534 !important; }
+            .tag-ZIP { background: #FAE6C7 !important; color: #92400e !important; }
+            .tag-SRC { background: #F2E6D1 !important; color: #431407 !important; }
+            .tag-FILE { background: #EBD6F7 !important; color: #6B308C !important; }
+
+            .node-content { gap: 0; flex: 1; display: flex !important; align-items: center !important; overflow: visible; }
+            .connector { border-bottom: 0.5pt dashed #94a3b8 !important; display: block !important; flex-grow: 1; height: 14pt; margin: 0 10pt; }
+
+            .print-note-box {
+                display: block !important;
+                width: 35%; background: #FFFBE6 !important; border: 0.5pt solid #FFE58F !important;
+                padding: 5pt 10pt; border-radius: 4pt; font-size: 10pt; color: #854d0e !important;
+                word-break: break-all; text-align: left;
+            }
+            
+            .tree, .tree ul { display: block !important; }
+            .collapsed ul { display: block !important; }
+            
+            @page { margin: 1.5cm; size: A4 portrait; }
         }
 
         input[type="file"] { display: none; }
-        footer { padding: 0.75rem 2rem 1.25rem; font-size: 0.9rem; color: #475569; }
     </style>
 </head>
 <body>
     <header>
       <div>
-        <h1>檔案樹狀檢視與備註</h1>
+        <h1 id="ui-title">檔案樹狀檢視與備註</h1>
         <p class="subtitle">
-          目前目錄：<span id="rootPathLabel">未選擇</span>
-          <label for="dirInput">選擇目錄</label>
+          <span id="ui-current-dir">目前目錄</span>：<span id="rootPathLabel">未選擇</span>
+          <label for="dirInput" id="ui-select-dir">選擇目錄</label>
           <input type="file" id="dirInput" webkitdirectory directory />
+          <button class="btn-lang" onclick="toggleLang()">English / 中文</button>
         </p>
       </div>
-      <button id="exportPdf" type="button" class="primary">輸出 PDF</button>
+      <button id="exportPdf" type="button" class="primary">輸出 PDF / Export PDF</button>
     </header>
 
     <main class="layout">
       <section class="panel tree-panel">
-        <div class="panel-header"><h2>資料夾樹狀</h2><span id="statusMessage"></span></div>
+        <div class="panel-header"><h2 id="ui-tree-title">資料夾樹狀</h2></div>
         <div id="treeContainer">
           <ul id="treeRoot" class="tree"></ul>
         </div>
       </section>
+
       <section class="panel detail-panel">
-        <div class="panel-header"><h2>備註編輯</h2></div>
+        <div class="panel-header"><h2 id="ui-edit-title">備註編輯</h2></div>
         <div id="detailBody">
-          <p class="placeholder">請先在左側選擇檔案或資料夾。</p>
+          <p class="placeholder" id="ui-placeholder">請先在左側選擇檔案或資料夾。</p>
           <div class="detail-grid hidden" id="detailGrid">
-            <div class="detail-row"><span class="label">名稱</span><span id="detailName"></span></div>
-            <div class="detail-row"><span class="label">相對路徑</span><span id="detailPath" class="code"></span></div>
-            <label for="noteInput">備註內容</label>
-            <textarea id="noteInput" rows="8" placeholder="在此輸入註解，離開即自動儲存。"></textarea>
+            <div class="detail-row"><span class="label" id="ui-label-name">名稱</span><span id="detailName"></span></div>
+            <div class="detail-row"><span class="label" id="ui-label-path">相對路徑</span><span id="detailPath" class="code"></span></div>
+            <label style="display:block; margin-top:10px; font-weight:bold;" id="ui-label-note">備註內容</label>
+            <textarea id="noteInput" placeholder="在此輸入註解，離開即自動儲存..."></textarea>
           </div>
         </div>
       </section>
     </main>
 
-    <div id="pdf-export-container" style="display:none;">
-        <div id="pdf-report" class="pdf-report">
-            <h1 class="pdf-title">檔案樹狀結構報告</h1>
-            <p style="font-size: 12px;">根目錄：<span id="pdf-root"></span></p>
-            <p style="font-size: 12px; color: #666; margin-bottom: 20px;">生成時間：<span id="pdf-date"></span></p>
-            <table class="pdf-table">
-                <tbody id="pdf-rows"></tbody>
-            </table>
-        </div>
-    </div>
-
     <script>
+        const i18n = {
+            zh: {
+                title: "檔案樹狀檢視與備註 (Pure Web)",
+                header: "檔案樹狀檢視與備註",
+                currentDir: "目前目錄",
+                notSelected: "未選擇",
+                selectDir: "選擇目錄",
+                treeTitle: "資料夾樹狀",
+                editTitle: "備註編輯",
+                placeholder: "請先在左側選擇檔案或資料夾。",
+                labelName: "名稱",
+                labelPath: "相對路徑",
+                labelNote: "備註內容",
+                notePlaceholder: "在此輸入註解，離開即自動儲存...",
+                exportBtn: "輸出 PDF",
+                reportTitle: "檔案結構報告"
+            },
+            en: {
+                title: "File Tree & Notes (Pure Web)",
+                header: "File Tree Navigator",
+                currentDir: "Current Dir",
+                notSelected: "Not Selected",
+                selectDir: "Select Folder",
+                treeTitle: "Folder Structure",
+                editTitle: "Note Editor",
+                placeholder: "Please select a file or folder from the left.",
+                labelName: "Name",
+                labelPath: "Path",
+                labelNote: "Note",
+                notePlaceholder: "Enter notes here, it saves automatically on exit...",
+                exportBtn: "Export PDF",
+                reportTitle: "File Structure Report"
+            }
+        };
+
+        let currentLang = 'zh';
+
+        function toggleLang() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            updateUI();
+        }
+
+        function updateUI() {
+            const lang = i18n[currentLang];
+            document.getElementById('title-tag').innerText = lang.title;
+            document.getElementById('ui-title').innerText = lang.header;
+            document.getElementById('ui-current-dir').innerText = lang.currentDir;
+            if(document.getElementById('rootPathLabel').innerText === i18n.zh.notSelected || document.getElementById('rootPathLabel').innerText === i18n.en.notSelected) {
+                document.getElementById('rootPathLabel').innerText = lang.notSelected;
+            }
+            document.getElementById('ui-select-dir').innerText = lang.selectDir;
+            document.getElementById('ui-tree-title').innerText = lang.treeTitle;
+            document.getElementById('ui-edit-title').innerText = lang.editTitle;
+            document.getElementById('ui-placeholder').innerText = lang.placeholder;
+            document.getElementById('ui-label-name').innerText = lang.labelName;
+            document.getElementById('ui-label-path').innerText = lang.labelPath;
+            document.getElementById('ui-label-note').innerText = lang.labelNote;
+            document.getElementById('noteInput').placeholder = lang.notePlaceholder;
+            document.getElementById('exportPdf').innerText = lang.exportBtn;
+        }
+
         const treeRoot = document.getElementById('treeRoot');
         const dirInput = document.getElementById('dirInput');
         const rootPathLabel = document.getElementById('rootPathLabel');
         const detailGrid = document.getElementById('detailGrid');
-        const detailBody = document.getElementById('detailBody');
         const noteInput = document.getElementById('noteInput');
         
         let fileStructure = null;
@@ -194,11 +258,11 @@
             rootPathLabel.innerText = rootName;
             buildTree(files, rootName);
             renderTree();
-            document.querySelector('.placeholder').classList.add('hidden');
+            document.querySelectorAll('.placeholder').forEach(p => p.classList.add('hidden'));
         };
 
         function buildTree(files, rootName) {
-            fileStructure = { name: rootName, type: 'directory', children: [], path: rootName };
+            fileStructure = { name: rootName, type: 'directory', children: [], path: rootName, ext: "" };
             for (let i = 0; i < files.length; i++) {
                 const pathParts = files[i].webkitRelativePath.split('/');
                 let current = fileStructure;
@@ -208,45 +272,128 @@
                     currentPath += "/" + name;
                     let node = current.children.find(c => c.name === name);
                     if (!node) {
-                        node = { name, type: j === pathParts.length - 1 ? 'file' : 'directory', children: [], path: currentPath };
+                        const ext = name.includes('.') ? name.split('.').pop().toUpperCase() : "";
+                        node = { name, type: j === pathParts.length - 1 ? 'file' : 'directory', children: [], path: currentPath, ext };
                         current.children.push(node);
                     }
                     current = node;
                 }
             }
-            const sort = (n) => { if (n.children) { n.children.sort((a,b) => b.type.localeCompare(a.type) || a.name.localeCompare(b.name)); n.children.forEach(sort); } };
-            sort(fileStructure);
+            const sortNodes = (n) => { if (n.children) { n.children.sort((a,b) => b.type.localeCompare(a.type) || a.name.localeCompare(b.name)); n.children.forEach(sortNodes); } };
+            sortNodes(fileStructure);
+        }
+
+        function createLineSvg(type) {
+            const ns = "http://www.w3.org/2000/svg";
+            const svg = document.createElementNS(ns, "svg");
+            svg.setAttribute("viewBox", "0 0 22 32");
+            svg.setAttribute("width", "22");
+            svg.setAttribute("height", "32");
+            const createLine = (x1, y1, x2, y2) => {
+                const line = document.createElementNS(ns, "line");
+                line.setAttribute("x1", x1); line.setAttribute("y1", y1);
+                line.setAttribute("x2", x2); line.setAttribute("y2", y2);
+                line.setAttribute("stroke", "#bbb"); line.setAttribute("stroke-width", "1.5");
+                return line;
+            };
+            if (type === 'v') svg.appendChild(createLine(11, 0, 11, 32));
+            else if (type === 'l') { svg.appendChild(createLine(11, 0, 11, 16)); svg.appendChild(createLine(11, 16, 22, 16)); }
+            else if (type === 't') { svg.appendChild(createLine(11, 0, 11, 32)); svg.appendChild(createLine(11, 16, 22, 16)); }
+            return svg;
         }
 
         function renderTree() {
             treeRoot.innerHTML = '';
-            treeRoot.appendChild(createNodeEl(fileStructure));
-        }
+            function renderNode(node, depth, isLast, parentLineFlags) {
+                const li = document.createElement('li');
+                li.className = 'tree-node';
+                const row = document.createElement('div');
+                row.className = 'tree-row';
+                if (notes[node.path]) row.classList.add('has-note');
 
-        function createNodeEl(node) {
-            const li = document.createElement('li');
-            li.className = 'tree-node';
-            const row = document.createElement('div');
-            row.className = 'tree-row';
-            if (notes[node.path]) row.classList.add('has-note');
-            const toggle = document.createElement('button');
-            toggle.className = 'tree-toggle';
-            toggle.innerText = node.type === 'directory' ? 'v' : ' ';
-            if (node.type === 'directory') {
-                toggle.onclick = (e) => { e.stopPropagation(); li.classList.toggle('collapsed'); toggle.innerText = li.classList.contains('collapsed') ? '>' : 'v'; };
+                const gutter = document.createElement('div');
+                gutter.className = 'gutter';
+                parentLineFlags.forEach((hasMore, idx) => {
+                    const unit = document.createElement('div');
+                    unit.className = 'indent-unit';
+                    if (idx < parentLineFlags.length - 1) {
+                        if (hasMore) unit.appendChild(createLineSvg('v'));
+                    } else {
+                        unit.appendChild(createLineSvg(isLast ? 'l' : 't'));
+                    }
+                    gutter.appendChild(unit);
+                });
+                if (depth === 0) gutter.style.display = 'none';
+
+                const content = document.createElement('div');
+                content.className = 'node-content';
+
+                let tag = "SRC";
+                if(node.type === 'directory') tag = "DIR";
+                else {
+                    const img = ['PNG','JPG','JPEG','GIF','SVG','WEBP'];
+                    const doc = ['TXT','MD','PDF','DOC','DOCX'];
+                    const zip = ['ZIP','RAR','7Z','TAR','GZ'];
+                    const currExt = node.ext.toUpperCase();
+                    if(img.includes(currExt)) tag = "IMG";
+                    else if(doc.includes(currExt)) tag = "DOC";
+                    else if(zip.includes(currExt)) tag = "ZIP";
+                    else tag = currExt.slice(0,3) || "FILE";
+                }
+                const pdfTag = document.createElement('span');
+                pdfTag.className = `pdf-tag tag-${tag}`;
+                pdfTag.innerText = tag === 'DIR' ? '' : tag;
+                pdfTag.style.display = 'none'; 
+
+                const uiIcon = document.createElement('span');
+                uiIcon.className = 'tree-icon ' + (node.type === 'directory' ? 'icon-folder' : 'icon-file');
+                const label = document.createElement('span');
+                label.className = 'tree-label';
+                label.innerText = node.name;
+                if(node.type === 'directory') label.style.fontWeight = 'bold';
+
+                content.append(pdfTag, uiIcon, label);
+                const connector = document.createElement('div');
+                connector.className = 'connector';
+                connector.style.display = 'none'; 
+                content.append(connector);
+                row.append(gutter, content);
+
+                if (notes[node.path]) {
+                    const noteBox = document.createElement('div');
+                    noteBox.className = 'print-note-box';
+                    noteBox.innerText = notes[node.path];
+                    noteBox.style.display = 'none';
+                    row.appendChild(noteBox);
+                }
+
+                if (node.type === 'directory') {
+                    const toggle = document.createElement('button');
+                    toggle.className = 'tree-toggle';
+                    toggle.innerText = '▼';
+                    toggle.onclick = (e) => { e.stopPropagation(); li.classList.toggle('collapsed'); toggle.innerText = li.classList.contains('collapsed') ? '▶' : '▼'; };
+                    content.prepend(toggle);
+                } else {
+                    const spacer = document.createElement('div');
+                    spacer.className = 'tree-toggle';
+                    content.prepend(spacer);
+                }
+                row.onclick = () => {
+                    document.querySelectorAll('.tree-row').forEach(r => r.classList.remove('selected'));
+                    row.classList.add('selected');
+                    showDetail(node, row);
+                };
+                li.appendChild(row);
+                if (node.children && node.children.length) {
+                    const ul = document.createElement('ul');
+                    node.children.forEach((c, i) => {
+                        ul.appendChild(renderNode(c, depth + 1, i === node.children.length - 1, [...parentLineFlags, i < node.children.length - 1]));
+                    });
+                    li.appendChild(ul);
+                }
+                return li;
             }
-            row.appendChild(toggle);
-            const icon = document.createElement('span');
-            icon.className = 'tree-icon ' + (node.type === 'directory' ? 'icon-folder' : 'icon-file-default');
-            row.appendChild(icon);
-            const label = document.createElement('span');
-            label.className = 'tree-label';
-            label.innerText = node.name;
-            row.appendChild(label);
-            row.onclick = () => { document.querySelectorAll('.tree-row').forEach(r => r.classList.remove('selected')); row.classList.add('selected'); showDetail(node, row); };
-            li.appendChild(row);
-            if (node.children) { const ul = document.createElement('ul'); node.children.forEach(c => ul.appendChild(createNodeEl(c))); li.appendChild(ul); }
-            return li;
+            if (fileStructure) treeRoot.appendChild(renderNode(fileStructure, 0, true, []));
         }
 
         function showDetail(node, rowEl) {
@@ -268,78 +415,26 @@
         }
 
         noteInput.onblur = saveCurrentNote;
-
         document.getElementById('exportPdf').onclick = () => {
-            if (!fileStructure) return alert("請先選擇資料夾！");
+            if (!fileStructure) return alert(currentLang === 'zh' ? "請先選擇資料夾！" : "Please select a folder first!");
             saveCurrentNote();
-            
-            const rowsContainer = document.getElementById('pdf-rows');
-            rowsContainer.innerHTML = '';
-            document.getElementById('pdf-date').innerText = new Date().toLocaleString();
-            document.getElementById('pdf-root').innerText = rootPathLabel.innerText;
-
-            const process = (node, depth, isLast, prefixes) => {
-                const tr = document.createElement('tr');
-                const tdTree = document.createElement('td');
-                tdTree.className = 'pdf-col-tree';
-                const gutter = document.createElement('div');
-                gutter.className = 'pdf-gutter';
-                prefixes.forEach((p, idx) => {
-                    const unit = document.createElement('div');
-                    unit.className = 'pdf-indent-unit';
-                    if (idx < prefixes.length - 1 && p) {
-                        const line = document.createElement('div');
-                        line.className = 'pdf-v-line';
-                        unit.appendChild(line);
-                    } else if (idx === prefixes.length - 1) {
-                        const line = document.createElement('div');
-                        line.className = isLast ? 'pdf-l-corner' : 'pdf-v-line';
-                        unit.appendChild(line);
-                        const hLine = document.createElement('div');
-                        hLine.className = 'pdf-h-line';
-                        unit.appendChild(hLine);
-                    }
-                    gutter.appendChild(unit);
-                });
-                const content = document.createElement('div');
-                content.className = 'pdf-node-content';
-                content.innerHTML = `<span>${node.type === 'directory' ? '📁' : '📄'}</span><span style="${node.type === 'directory' ? 'font-weight:bold' : ''}">${node.name}</span>`;
-                tdTree.appendChild(gutter);
-                tdTree.appendChild(content);
-                tr.appendChild(tdTree);
-
-                const tdNote = document.createElement('td');
-                tdNote.className = 'pdf-col-note';
-                if (notes[node.path]) {
-                    const noteBox = document.createElement('div');
-                    noteBox.className = 'pdf-note-box';
-                    noteBox.innerText = notes[node.path];
-                    tdNote.appendChild(noteBox);
-                }
-                tr.appendChild(tdNote);
-                rowsContainer.appendChild(tr);
-
-                if (node.children) {
-                    node.children.forEach((c, idx) => {
-                        const last = idx === node.children.length - 1;
-                        process(c, depth + 1, last, [...prefixes, !last]);
-                    });
-                }
-            };
-
-            process(fileStructure, 0, true, []);
-            
-            const element = document.getElementById('pdf-report');
-            const opt = {
-                margin: 10,
-                filename: 'file-tree-report.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['css', 'legacy'] }
-            };
-            html2pdf().set(opt).from(element).save();
+            const style = document.createElement('style');
+            style.id = 'print-helper-style';
+            const reportTitleText = i18n[currentLang].reportTitle;
+            style.innerHTML = `
+                .pdf-tag, .connector, .print-note-box { display: inline-block !important; }
+                .connector { display: flex !important; }
+                .tree-icon, .tree-toggle { display: none !important; }
+                .tree ul { display: block !important; }
+                .collapsed ul { display: block !important; }
+                .gutter, .indent-unit { display: flex !important; }
+                .panel-header h2::after { content: " ${reportTitleText}" !important; }
+            `;
+            document.head.appendChild(style);
+            window.print();
+            setTimeout(() => { const s = document.getElementById('print-helper-style'); if (s) s.remove(); }, 1000);
         };
     </script>
 </body>
 </html>
+EOF
