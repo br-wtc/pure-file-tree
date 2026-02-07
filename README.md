@@ -1,23 +1,45 @@
-# Pure File Tree Navigator 🌳🚀
+# Pure File Tree Navigator
 
-這是一個**純前端**版本的檔案樹狀導覽工具，完全不需 Python 或任何後端環境即可運作。
+A lightweight, pure web-based file tree explorer with annotation capabilities and PDF reporting.
 
-## ✨ 特點
-- **無需安裝**：直接開啟 `index.html` 即可使用。
-- **資料夾掃描**：使用瀏覽器 File System API，選取本地資料夾後即可讀取樹狀結構。
-- **本地儲存**：備註內容自動儲存於瀏覽器 LocalStorage，重新整理也不會遺失。
-- **PDF 匯出**：整合 `jsPDF` 套件，一鍵產出結構與備註報告。
-- **隱私安全**：所有操作均在你的電腦本地完成，不經過任何伺服器。
+---
 
-## 📸 介面展示
-![Demo](demo.jpg)
+### 🌐 Key Features (English)
+- **100% Pure Web**: Zero installation. Runs directly in your browser using local file APIs.
+- **Durable Annotations**: Add notes to files/folders; saves automatically to your browser's local storage.
+- **i18n Support**: Seamless toggle between **English** and **Traditional Chinese**.
+- **Professional PDF Export**: 
+    - Generates high-quality reports matching a professional engineering look.
+    - **SVG Tree Lines**: Structural lines remain visible even if "Print Background Graphics" is disabled.
+    - **Searchable Text**: Real text output, not an image; allows copying and searching within the PDF.
+    - **Smart Tags**: Automatic color-coded tags for common file types (DIR, IMG, DOC, ZIP).
+- **Privacy First**: Files are processed locally; no data is ever uploaded to a server.
 
-## 🛠️ 使用說明
-1.  下載此專案。
-2.  使用瀏覽器開啟 `index.html`。
-3.  點擊右上角「選擇資料夾」。
-4.  在左側樹狀結構點擊檔案，於右側編輯備註。
-5.  點擊「輸出 PDF」下載成果報告。
+---
 
-## ⚖️ 授權聲明
-本專案採用 [MIT License](LICENSE)。
+### 🌐 核心功能 (繁體中文)
+- **100% 純網頁運作**：無需安裝。直接透過瀏覽器存取本地目錄，隨開即用。
+- **持久化備註**：可為檔案或資料夾添加註解，系統會自動儲存於瀏覽器的本地儲存空間 (Local Storage)。
+- **中英文雙語切換**：支援 **繁體中文** 與 **英文** 介面即時切換。
+- **專業級 PDF 輸出**：
+    - 產出對齊專業工程風格的結構報告。
+    - **SVG 實體連線**：左側樹狀結構線條採用實體 SVG 繪製，即使不勾選「列印背景圖形」也能清晰顯示。
+    - **真文字 PDF**：輸出內容為真實文字而非圖片，支援內容複製與全文搜尋。
+    - **自動化標籤**：根據副檔名自動產生彩色分類標籤（如 DIR, IMG, DOC, ZIP）。
+- **隱私安全**：所有操作均在本地端完成，絕不將檔案資訊上傳至雲端。
+
+---
+
+### 🖼️ Screenshots / 程式截圖
+
+#### English Interface
+![English Interface](demo_en.jpg)
+
+#### 繁體中文介面
+![繁體中文介面](demo_zh.jpg)
+
+---
+
+### 📄 License
+This project is licensed under the MIT License.
+EOF
