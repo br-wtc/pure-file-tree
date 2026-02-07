@@ -4,111 +4,212 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>File Tree Navigator (Pure Web) 🌳</title>
+    <!-- 引入 jsPDF 庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
+            font-family: "Segoe UI", "Microsoft JhengHei", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #111827;
+            background-color: #f5f6fb;
             --primary: #2563eb;
             --primary-dark: #1d4ed8;
-            --bg: #f5f6fb;
-            --card-bg: #ffffff;
-            --text: #111827;
         }
-        body { font-family: "Segoe UI", "Microsoft JhengHei", sans-serif; margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; }
-        header { background: linear-gradient(120deg, var(--primary), #0f172a); color: #fff; padding: 1.2rem 2rem; display: flex; justify-content: space-between; align-items: center; }
-        header h1 { margin: 0; font-size: 1.5rem; }
-        .controls { display: flex; gap: 10px; }
-        main { flex: 1; display: flex; gap: 1.5rem; padding: 1.5rem; overflow: hidden; }
-        .panel { background: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; }
-        .tree-panel { flex: 1; min-width: 300px; }
-        .detail-panel { flex: 1.5; min-width: 350px; padding: 20px; }
-        .panel-header { padding: 15px 20px; border-bottom: 1px solid #eee; font-weight: bold; background: #fafafa; }
-        #treeContainer { flex: 1; overflow: auto; padding: 15px; }
-        .tree, .tree ul { list-style: none; padding-left: 20px; margin: 0; }
-        .tree-row { display: flex; align-items: center; padding: 6px 10px; border-radius: 6px; cursor: pointer; transition: 0.2s; gap: 8px; }
-        .tree-row:hover { background: #f0f7ff; }
-        .tree-row.selected { background: #e0efff; box-shadow: inset 0 0 0 1px #bfdbfe; }
-        .tree-row.has-note::after { content: "備註"; font-size: 10px; background: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 10px; margin-left: auto; }
-        .tree-toggle { width: 20px; cursor: pointer; text-align: center; font-family: monospace; color: var(--primary); }
-        .collapsed > ul { display: none; }
-        
-        .detail-info { margin-bottom: 20px; font-size: 14px; }
-        .detail-info div { margin-bottom: 8px; }
-        .label { font-weight: bold; width: 80px; display: inline-block; color: #666; }
-        textarea { width: 100%; height: 200px; border: 1px solid #ddd; border-radius: 8px; padding: 12px; font-family: inherit; resize: vertical; background: #fafafa; }
-        button { border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-primary:hover { background: var(--primary-dark); }
-        .btn-outline { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3); }
-        .btn-outline:hover { background: rgba(255,255,255,0.2); }
+
+        * { box-sizing: border-box; }
+        .hidden { display: none !important; }
+
+        body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
+
+        header {
+            background: linear-gradient(120deg, #1f5eff, #0f172a);
+            color: #fff;
+            padding: 1.2rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        header h1 { margin: 0 0 0.25rem; font-size: 1.75rem; }
+
+        .subtitle {
+            margin: 0; font-size: 0.95rem; color: rgba(255, 255, 255, 0.85);
+            display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+        }
+
+        .btn-action {
+            border: none; border-radius: 20px; background: rgba(255, 255, 255, 0.15);
+            color: #fff; padding: 0.4rem 1.2rem; font-size: 0.85rem; cursor: pointer; transition: 0.2s;
+            text-decoration: none; display: inline-block;
+        }
+        .btn-action:hover { background: rgba(255, 255, 255, 0.25); }
+
+        main.layout { flex: 1; display: flex; gap: 1.25rem; padding: 1.25rem 2rem; align-items: stretch; flex-wrap: wrap; overflow: hidden; }
+
+        .panel {
+            background: #fff; border-radius: 14px; box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
+            padding: 1rem; flex: 1 1 320px; min-height: 400px; display: flex; flex-direction: column;
+        }
+
+        .tree-panel { max-width: 520px; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 1rem; }
+        .panel-header h2 { margin: 0; font-size: 1.1rem; color: #0f172a; }
+
+        #treeContainer { flex: 1; overflow: auto; padding-right: 0.25rem; }
+        .tree { list-style: none; padding-inline-start: 0.75rem; margin: 0; }
+        .tree ul { list-style: none; padding-left: 1.1rem; margin: 0.15rem 0 0.25rem; }
+        .tree-node { margin-bottom: 0.35rem; }
+
+        .tree-row {
+            display: flex; align-items: center; gap: 0.35rem; border-radius: 10px;
+            padding: 0.3rem 0.55rem; cursor: pointer; transition: background 0.2s, box-shadow 0.2s;
+        }
+        .tree-row:hover { background: rgba(37, 99, 235, 0.08); }
+        .tree-row.selected { background: rgba(59, 130, 246, 0.15); box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.3); }
+
+        .tree-row.has-note::after {
+            content: "備註"; font-size: 0.7rem; background: #fde047; color: #7c2d12;
+            padding: 0.1rem 0.35rem; border-radius: 999px; margin-left: auto;
+        }
+
+        .tree-label { font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .tree-icon {
+            width: 1.7rem; height: 1.35rem; display: inline-flex; align-items: center; justify-content: center;
+            background-repeat: no-repeat; background-position: center; background-size: contain; margin-right: 0.15rem;
+        }
+
+        .icon-folder { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M3 7.5h6.2c.5 0 .9.3 1.1.7l.5 1c.2.5.6.8 1.1.8H21c.6 0 1 .4 1 1v6.5c0 .8-.7 1.5-1.5 1.5h-17C2.7 19 2 18.3 2 17.5v-9C2 7.8 2.4 7.5 3 7.5Z' fill='%23facc15' stroke='%23d97706' stroke-width='1.5'/%3E%3Cpath d='M3 8.8h18' stroke='%23d97706' stroke-width='1.2'/%3E%3C/svg%3E"); }
+        .icon-file { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 3h7l5 5v12.5c0 .8-.7 1.5-1.5 1.5h-10C5.7 22 5 21.3 5 20.5v-16C5 3.7 5.7 3 6.5 3Z' fill='%23c7d2fe' stroke='%234f46e5' stroke-width='1.4'/%3E%3Cpath d='M13 3v5h5' stroke='%234f46e5' stroke-width='1.2'/%3E%3C/svg%3E"); }
+
+        .tree-toggle { border: none; background: transparent; color: #1d4ed8; cursor: pointer; font-size: 0.85rem; width: 1.5rem; }
+        .tree-node.collapsed > ul { display: none; }
+
+        .detail-panel { flex: 2 1 360px; padding: 1.5rem; }
+        .placeholder { margin: 2rem 0; color: #94a3b8; text-align: center; }
+        .detail-grid { display: flex; flex-direction: column; gap: 1rem; }
+        .detail-row { display: flex; gap: 0.5rem; align-items: baseline; }
+        .label { width: 90px; font-weight: 600; color: #475569; }
+        .code { font-family: "Consolas", monospace; background: #f1f5f9; padding: 0.1rem 0.35rem; border-radius: 6px; word-break: break-all; }
+
+        textarea {
+            width: 100%; resize: vertical; border-radius: 10px; border: 1px solid #cbd5f5;
+            padding: 0.65rem; font-size: 1rem; font-family: inherit; background: #f8fafc;
+            min-height: 200px; transition: 0.2s;
+        }
+        textarea:focus { border-color: #2563eb; outline: none; background: #fff; }
+
+        .primary-btn {
+            border-radius: 999px; border: none; background: #2563eb; color: #fff;
+            padding: 0.6rem 1.5rem; font-size: 0.9rem; cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        .primary-btn:hover { background: #1d4ed8; }
+        .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
         input[type="file"] { display: none; }
+        footer { padding: 1rem 2rem; font-size: 0.85rem; color: #64748b; text-align: center; }
     </style>
 </head>
 <body>
     <header>
-        <h1>File Tree Navigator (Pure Web) 🌳</h1>
-        <div class="controls">
-            <label for="dirInput" class="btn-outline" style="padding: 10px 20px; border-radius: 6px; cursor: pointer;">選擇資料夾</label>
+        <div>
+            <h1>File Tree Navigator (Pure Web) 🌳</h1>
+            <p class="subtitle">目前目錄：<span id="rootPathLabel">未選擇</span></p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <label for="dirInput" class="btn-action">📁 選擇資料夾</label>
             <input type="file" id="dirInput" webkitdirectory directory />
-            <button id="exportPdf" class="btn-outline">輸出 PDF</button>
+            <button id="exportPdf" class="btn-action" style="background: #10b981;">📄 輸出 PDF</button>
         </div>
     </header>
 
-    <main>
-        <div class="panel tree-panel">
-            <div class="panel-header">資料夾結構</div>
+    <main class="layout">
+        <section class="panel tree-panel">
+            <div class="panel-header">
+                <h2>資料夾樹狀</h2>
+            </div>
             <div id="treeContainer">
-                <p style="color:#999;text-align:center;margin-top:50px;">請先選擇一個資料夾進行讀取。</p>
+                <p class="placeholder">點擊上方按鈕選擇資料夾以開始。</p>
                 <ul id="treeRoot" class="tree"></ul>
             </div>
-        </div>
-        <div class="panel detail-panel" id="detailPanel" style="display:none">
-            <div class="panel-header">備註編輯</div>
-            <div class="detail-info">
-                <div><span class="label">名稱：</span><span id="nodeName"></span></div>
-                <div><span class="label">路徑：</span><span id="nodePath" style="font-family:monospace;background:#eee;padding:2px 4px;border-radius:4px"></span></div>
+        </section>
+
+        <section class="panel detail-panel">
+            <div class="panel-header">
+                <h2>備註編輯</h2>
             </div>
-            <label style="font-weight:bold;display:block;margin-bottom:10px">備註內容</label>
-            <textarea id="noteInput" placeholder="在此輸入備註，離開或切換時會自動儲存..."></textarea>
-            <p style="font-size:12px;color:#666;margin-top:10px">💡 備註將儲存於瀏覽器本地空間 (LocalStorage)。</p>
-        </div>
+            <div id="detailBody">
+                <p class="placeholder">請先在左側選擇檔案或資料夾。</p>
+                <div class="detail-grid hidden" id="detailGrid">
+                    <div class="detail-row">
+                        <span class="label">名稱</span>
+                        <span id="detailName"></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="label">相對路徑</span>
+                        <span id="detailPath" class="code"></span>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <label style="display:block; margin-bottom: 8px; font-weight: 600;">備註內容</label>
+                        <textarea id="noteInput" placeholder="在此輸入註解，離開或切換時會自動儲存..."></textarea>
+                    </div>
+                    <p style="font-size: 11px; color: #94a3b8;">💡 備註儲存於瀏覽器本地 (LocalStorage)。</p>
+                </div>
+            </div>
+        </section>
     </main>
+
+    <footer>
+        <p>Pure Web Edition &copy; 2026 - 不需要伺服器即可運作</p>
+    </footer>
 
     <script>
         const treeRoot = document.getElementById('treeRoot');
         const dirInput = document.getElementById('dirInput');
-        const detailPanel = document.getElementById('detailPanel');
+        const rootPathLabel = document.getElementById('rootPathLabel');
+        const detailGrid = document.getElementById('detailGrid');
+        const detailBody = document.getElementById('detailBody');
         const noteInput = document.getElementById('noteInput');
         
-        let fileStructure = {};
-        let selectedPath = null;
+        let fileStructure = null;
+        let selectedNode = null;
         let notes = JSON.parse(localStorage.getItem('pure-web-tree-notes') || '{}');
 
         dirInput.onchange = (e) => {
             const files = e.target.files;
             if (!files.length) return;
-            buildTree(files);
+            const rootName = files[0].webkitRelativePath.split('/')[0];
+            rootPathLabel.innerText = rootName;
+            buildTree(files, rootName);
             renderTree();
+            const placeholders = document.querySelectorAll('.placeholder');
+            placeholders.forEach(p => p.classList.add('hidden'));
         };
 
-        function buildTree(files) {
-            fileStructure = { name: files[0].webkitRelativePath.split('/')[0], type: 'directory', children: [], path: '' };
+        function buildTree(files, rootName) {
+            fileStructure = { name: rootName, type: 'directory', children: [], path: rootName };
             for (let i = 0; i < files.length; i++) {
                 const pathParts = files[i].webkitRelativePath.split('/');
                 let current = fileStructure;
-                let fullPath = "";
+                let currentPath = rootName;
                 
                 for (let j = 1; j < pathParts.length; j++) {
                     const name = pathParts[j];
-                    fullPath += (fullPath ? "/" : "") + name;
+                    currentPath += "/" + name;
                     let node = current.children.find(c => c.name === name);
                     if (!node) {
-                        node = { name, type: j === pathParts.length - 1 ? 'file' : 'directory', children: [], path: fullPath };
+                        node = { 
+                            name, 
+                            type: j === pathParts.length - 1 ? 'file' : 'directory', 
+                            children: [], 
+                            path: currentPath 
+                        };
                         current.children.push(node);
                     }
                     current = node;
                 }
             }
-            // Sort: folders first
             const sortNodes = (node) => {
                 if (node.children) {
                     node.children.sort((a, b) => b.type.localeCompare(a.type) || a.name.localeCompare(b.name));
@@ -125,30 +226,37 @@
 
         function createNodeEl(node) {
             const li = document.createElement('li');
+            li.className = 'tree-node';
+
             const row = document.createElement('div');
             row.className = 'tree-row';
             if (notes[node.path]) row.classList.add('has-note');
             
-            const toggle = document.createElement('span');
+            const toggle = document.createElement('button');
             toggle.className = 'tree-toggle';
-            toggle.innerText = node.type === 'directory' ? '▼' : '';
+            toggle.innerText = node.type === 'directory' ? 'v' : '';
             if (node.type === 'directory') {
                 toggle.onclick = (e) => {
                     e.stopPropagation();
                     li.classList.toggle('collapsed');
-                    toggle.innerText = li.classList.contains('collapsed') ? '▶' : '▼';
+                    toggle.innerText = li.classList.contains('collapsed') ? '>' : 'v';
                 };
             }
             row.appendChild(toggle);
 
+            const icon = document.createElement('span');
+            icon.className = 'tree-icon ' + (node.type === 'directory' ? 'icon-folder' : 'icon-file');
+            row.appendChild(icon);
+
             const label = document.createElement('span');
-            label.innerText = (node.type === 'directory' ? '📁 ' : '📄 ') + node.name;
+            label.className = 'tree-label';
+            label.innerText = node.name;
             row.appendChild(label);
 
             row.onclick = () => {
                 document.querySelectorAll('.tree-row').forEach(r => r.classList.remove('selected'));
                 row.classList.add('selected');
-                showDetail(node);
+                showDetail(node, row);
             };
 
             li.appendChild(row);
@@ -160,59 +268,54 @@
             return li;
         }
 
-        function showDetail(node) {
+        function showDetail(node, rowEl) {
             saveCurrentNote();
-            selectedPath = node.path;
-            detailPanel.style.display = 'block';
-            document.getElementById('nodeName').innerText = node.name;
-            document.getElementById('nodePath').innerText = node.path || '(根目錄)';
+            selectedNode = { node, el: rowEl };
+            detailGrid.classList.remove('hidden');
+            document.getElementById('detailName').innerText = node.name;
+            document.getElementById('detailPath').innerText = node.path;
             noteInput.value = notes[node.path] || '';
         }
 
         function saveCurrentNote() {
-            if (selectedPath !== null) {
+            if (selectedNode) {
                 const val = noteInput.value.trim();
                 if (val) {
-                    notes[selectedPath] = val;
+                    notes[selectedNode.node.path] = val;
+                    selectedNode.el.classList.add('has-note');
                 } else {
-                    delete notes[selectedPath];
+                    delete notes[selectedNode.node.path];
+                    selectedNode.el.classList.remove('has-note');
                 }
                 localStorage.setItem('pure-web-tree-notes', JSON.stringify(notes));
-                updateIndicators();
             }
         }
 
         noteInput.onblur = saveCurrentNote;
-
-        function updateIndicators() {
-            document.querySelectorAll('.tree-row').forEach(row => {
-                const text = row.innerText.replace(/[📁📄▼▶]\s/, '').trim();
-                // This is a simplified check for demo
-                const isSelected = row.classList.contains('selected');
-                if (isSelected && notes[selectedPath]) row.classList.add('has-note');
-                else if (isSelected) row.classList.remove('has-note');
-            });
-        }
 
         document.getElementById('exportPdf').onclick = () => {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             doc.setFontSize(18);
             doc.text("File Tree Report", 20, 20);
-            doc.setFontSize(12);
-            let y = 30;
             
+            let y = 30;
             const printNode = (node, depth) => {
                 if (y > 280) { doc.addPage(); y = 20; }
                 const indent = "  ".repeat(depth);
-                const note = notes[node.path] ? ` [備註: ${notes[node.path]}]` : "";
+                const note = notes[node.path] ? ` [NOTE: ${notes[node.path]}]` : "";
+                doc.setFontSize(10);
                 doc.text(`${indent}${node.type === 'directory' ? '+' : '-'} ${node.name}${note}`, 20, y);
                 y += 7;
                 if (node.children) node.children.forEach(c => printNode(c, depth + 1));
             };
             
-            printNode(fileStructure, 0);
-            doc.save("file-tree-report.pdf");
+            if (fileStructure) {
+                printNode(fileStructure, 0);
+                doc.save("file-tree-report.pdf");
+            } else {
+                alert("請先選擇資料夾！");
+            }
         };
     </script>
 </body>
