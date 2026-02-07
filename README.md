@@ -45,13 +45,8 @@ A lightweight, pure web-based file tree explorer with annotation capabilities an
 
 ---
 
-### 🖼️ Screenshots / 程式截圖
 
-#### English Interface
-![English Interface](demo_en.jpg)
 
-#### 繁體中文介面
-![繁體中文介面](demo_zh.jpg)
 
 ---
 
