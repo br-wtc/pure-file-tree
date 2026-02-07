@@ -3,16 +3,13 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>File Tree Navigator (Pure Web) 🌳</title>
-    <!-- 引入 jsPDF 庫 -->
+    <title>檔案樹狀檢視與備註 (Pure Web)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
             font-family: "Segoe UI", "Microsoft JhengHei", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
             color: #111827;
             background-color: #f5f6fb;
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
         }
 
         * { box-sizing: border-box; }
@@ -38,14 +35,14 @@
             display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
         }
 
-        .btn-action {
+        .subtitle label, .subtitle button {
             border: none; border-radius: 20px; background: rgba(255, 255, 255, 0.15);
-            color: #fff; padding: 0.4rem 1.2rem; font-size: 0.85rem; cursor: pointer; transition: 0.2s;
-            text-decoration: none; display: inline-block;
+            color: #fff; padding: 0.2rem 0.9rem; font-size: 0.85rem; cursor: pointer; display: inline-block;
         }
-        .btn-action:hover { background: rgba(255, 255, 255, 0.25); }
 
-        main.layout { flex: 1; display: flex; gap: 1.25rem; padding: 1.25rem 2rem; align-items: stretch; flex-wrap: wrap; overflow: hidden; }
+        .subtitle label:hover, .subtitle button:hover { background: rgba(255, 255, 255, 0.25); }
+
+        main.layout { flex: 1; display: flex; gap: 1.25rem; padding: 1.25rem 2rem; align-items: stretch; flex-wrap: wrap; }
 
         .panel {
             background: #fff; border-radius: 14px; box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
@@ -53,10 +50,17 @@
         }
 
         .tree-panel { max-width: 520px; }
+
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; gap: 1rem; }
         .panel-header h2 { margin: 0; font-size: 1.1rem; color: #0f172a; }
+        .panel-actions { display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap; }
+
+        #statusMessage { min-height: 1.25rem; font-size: 0.9rem; color: #2563eb; }
+        #statusMessage[data-state="error"] { color: #dc2626; }
+        #statusMessage[data-state="success"] { color: #16a34a; }
 
         #treeContainer { flex: 1; overflow: auto; padding-right: 0.25rem; }
+
         .tree { list-style: none; padding-inline-start: 0.75rem; margin: 0; }
         .tree ul { list-style: none; padding-left: 1.1rem; margin: 0.15rem 0 0.25rem; }
         .tree-node { margin-bottom: 0.35rem; }
@@ -80,88 +84,107 @@
             background-repeat: no-repeat; background-position: center; background-size: contain; margin-right: 0.15rem;
         }
 
-        .icon-folder { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M3 7.5h6.2c.5 0 .9.3 1.1.7l.5 1c.2.5.6.8 1.1.8H21c.6 0 1 .4 1 1v6.5c0 .8-.7 1.5-1.5 1.5h-17C2.7 19 2 18.3 2 17.5v-9C2 7.8 2.4 7.5 3 7.5Z' fill='%23facc15' stroke='%23d97706' stroke-width='1.5'/%3E%3Cpath d='M3 8.8h18' stroke='%23d97706' stroke-width='1.2'/%3E%3C/svg%3E"); }
-        .icon-file { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 3h7l5 5v12.5c0 .8-.7 1.5-1.5 1.5h-10C5.7 22 5 21.3 5 20.5v-16C5 3.7 5.7 3 6.5 3Z' fill='%23c7d2fe' stroke='%234f46e5' stroke-width='1.4'/%3E%3Cpath d='M13 3v5h5' stroke='%234f46e5' stroke-width='1.2'/%3E%3C/svg%3E"); }
+        .tree-icon.icon-folder { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M3 7.5h6.2c.5 0 .9.3 1.1.7l.5 1c.2.5.6.8 1.1.8H21c.6 0 1 .4 1 1v6.5c0 .8-.7 1.5-1.5 1.5h-17C2.7 19 2 18.3 2 17.5v-9C2 7.8 2.4 7.5 3 7.5Z' fill='%23facc15' stroke='%23d97706' stroke-width='1.5'/%3E%3Cpath d='M3 8.8h18' stroke='%23d97706' stroke-width='1.2'/%3E%3C/svg%3E"); }
+        .tree-icon.icon-file-default { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 3h7l5 5v12.5c0 .8-.7 1.5-1.5 1.5h-10C5.7 22 5 21.3 5 20.5v-16C5 3.7 5.7 3 6.5 3Z' fill='%23c7d2fe' stroke='%234f46e5' stroke-width='1.4'/%3E%3Cpath d='M13 3v5h5' stroke='%234f46e5' stroke-width='1.2'/%3E%3C/svg%3E"); }
 
         .tree-toggle { border: none; background: transparent; color: #1d4ed8; cursor: pointer; font-size: 0.85rem; width: 1.5rem; }
         .tree-node.collapsed > ul { display: none; }
 
-        .detail-panel { flex: 2 1 360px; padding: 1.5rem; }
+        .detail-panel { flex: 2 1 360px; }
         .placeholder { margin: 2rem 0; color: #94a3b8; text-align: center; }
         .detail-grid { display: flex; flex-direction: column; gap: 1rem; }
         .detail-row { display: flex; gap: 0.5rem; align-items: baseline; }
         .label { width: 90px; font-weight: 600; color: #475569; }
         .code { font-family: "Consolas", monospace; background: #f1f5f9; padding: 0.1rem 0.35rem; border-radius: 6px; word-break: break-all; }
 
+        form#noteForm { display: flex; flex-direction: column; gap: 0.5rem; }
+
         textarea {
-            width: 100%; resize: vertical; border-radius: 10px; border: 1px solid #cbd5f5;
+            resize: vertical; border-radius: 10px; border: 1px solid #cbd5f5;
             padding: 0.65rem; font-size: 1rem; font-family: inherit; background: #f8fafc;
-            min-height: 200px; transition: 0.2s;
+            min-height: 160px; transition: border 0.2s, background 0.2s;
         }
         textarea:focus { border-color: #2563eb; outline: none; background: #fff; }
 
-        .primary-btn {
-            border-radius: 999px; border: none; background: #2563eb; color: #fff;
-            padding: 0.6rem 1.5rem; font-size: 0.9rem; cursor: pointer; font-weight: bold; transition: 0.2s;
-        }
-        .primary-btn:hover { background: #1d4ed8; }
-        .primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .form-actions { display: flex; justify-content: flex-end; }
+        button { border-radius: 999px; border: 1px solid #cbd5f5; background: #fff; padding: 0.35rem 1.1rem; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
+        button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button:not(:disabled):hover { background: rgba(37, 99, 235, 0.08); }
+        button.primary:not(:disabled):hover { background: #1d4ed8; }
+
+        footer { padding: 0.75rem 2rem 1.25rem; font-size: 0.9rem; color: #475569; }
 
         input[type="file"] { display: none; }
-        footer { padding: 1rem 2rem; font-size: 0.85rem; color: #64748b; text-align: center; }
+
+        @media (max-width: 900px) {
+            main.layout { flex-direction: column; }
+            .tree-panel { max-width: none; }
+            header { flex-direction: column; align-items: flex-start; }
+        }
     </style>
 </head>
 <body>
     <header>
-        <div>
-            <h1>File Tree Navigator (Pure Web) 🌳</h1>
-            <p class="subtitle">目前目錄：<span id="rootPathLabel">未選擇</span></p>
-        </div>
-        <div style="display: flex; gap: 10px;">
-            <label for="dirInput" class="btn-action">📁 選擇資料夾</label>
-            <input type="file" id="dirInput" webkitdirectory directory />
-            <button id="exportPdf" class="btn-action" style="background: #10b981;">📄 輸出 PDF</button>
-        </div>
+      <div>
+        <h1>檔案樹狀檢視與備註</h1>
+        <p class="subtitle">
+          目前目錄：<span id="rootPathLabel">未選擇</span>
+          <label for="dirInput">選擇目錄</label>
+          <input type="file" id="dirInput" webkitdirectory directory />
+        </p>
+      </div>
+      <button id="exportPdf" type="button" class="primary">
+        輸出 PDF
+      </button>
     </header>
 
     <main class="layout">
-        <section class="panel tree-panel">
-            <div class="panel-header">
-                <h2>資料夾樹狀</h2>
-            </div>
-            <div id="treeContainer">
-                <p class="placeholder">點擊上方按鈕選擇資料夾以開始。</p>
-                <ul id="treeRoot" class="tree"></ul>
-            </div>
-        </section>
+      <section class="panel tree-panel">
+        <div class="panel-header">
+          <h2>資料夾樹狀</h2>
+          <div class="panel-actions">
+            <span id="statusMessage" aria-live="polite"></span>
+          </div>
+        </div>
+        <div id="treeContainer">
+          <ul id="treeRoot" class="tree"></ul>
+        </div>
+      </section>
 
-        <section class="panel detail-panel">
-            <div class="panel-header">
-                <h2>備註編輯</h2>
+      <section class="panel detail-panel">
+        <div class="panel-header">
+          <h2>備註編輯</h2>
+        </div>
+        <div id="detailBody">
+          <p class="placeholder">請先在左側選擇檔案或資料夾。</p>
+          <div class="detail-grid hidden" id="detailGrid">
+            <div class="detail-row">
+              <span class="label">名稱</span>
+              <span id="detailName"></span>
             </div>
-            <div id="detailBody">
-                <p class="placeholder">請先在左側選擇檔案或資料夾。</p>
-                <div class="detail-grid hidden" id="detailGrid">
-                    <div class="detail-row">
-                        <span class="label">名稱</span>
-                        <span id="detailName"></span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="label">相對路徑</span>
-                        <span id="detailPath" class="code"></span>
-                    </div>
-                    <div style="margin-top: 10px;">
-                        <label style="display:block; margin-bottom: 8px; font-weight: 600;">備註內容</label>
-                        <textarea id="noteInput" placeholder="在此輸入註解，離開或切換時會自動儲存..."></textarea>
-                    </div>
-                    <p style="font-size: 11px; color: #94a3b8;">💡 備註儲存於瀏覽器本地 (LocalStorage)。</p>
-                </div>
+            <div class="detail-row">
+              <span class="label">相對路徑</span>
+              <span id="detailPath" class="code"></span>
             </div>
-        </section>
+            <form id="noteForm">
+              <label for="noteInput">備註內容</label>
+              <textarea
+                id="noteInput"
+                name="note"
+                rows="8"
+                placeholder="在此輸入註解，離開即自動儲存。"
+              ></textarea>
+            </form>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer>
-        <p>Pure Web Edition &copy; 2026 - 不需要伺服器即可運作</p>
+      <p>
+        說明：此工具純網頁運行，使用 LocalStorage 儲存備註，支援匯出 PDF（含備註）。
+      </p>
     </footer>
 
     <script>
@@ -171,10 +194,17 @@
         const detailGrid = document.getElementById('detailGrid');
         const detailBody = document.getElementById('detailBody');
         const noteInput = document.getElementById('noteInput');
+        const statusEl = document.getElementById('statusMessage');
         
         let fileStructure = null;
         let selectedNode = null;
         let notes = JSON.parse(localStorage.getItem('pure-web-tree-notes') || '{}');
+
+        function setStatus(msg, type = 'info') {
+            statusEl.textContent = msg;
+            statusEl.setAttribute('data-state', type);
+            setTimeout(() => { statusEl.textContent = ''; }, 3000);
+        }
 
         dirInput.onchange = (e) => {
             const files = e.target.files;
@@ -183,8 +213,8 @@
             rootPathLabel.innerText = rootName;
             buildTree(files, rootName);
             renderTree();
-            const placeholders = document.querySelectorAll('.placeholder');
-            placeholders.forEach(p => p.classList.add('hidden'));
+            document.querySelector('.placeholder').classList.add('hidden');
+            setStatus("檔案載入成功", "success");
         };
 
         function buildTree(files, rootName) {
@@ -234,7 +264,7 @@
             
             const toggle = document.createElement('button');
             toggle.className = 'tree-toggle';
-            toggle.innerText = node.type === 'directory' ? 'v' : '';
+            toggle.innerText = node.type === 'directory' ? 'v' : ' ';
             if (node.type === 'directory') {
                 toggle.onclick = (e) => {
                     e.stopPropagation();
@@ -245,7 +275,7 @@
             row.appendChild(toggle);
 
             const icon = document.createElement('span');
-            icon.className = 'tree-icon ' + (node.type === 'directory' ? 'icon-folder' : 'icon-file');
+            icon.className = 'tree-icon ' + (node.type === 'directory' ? 'icon-folder' : 'icon-file-default');
             row.appendChild(icon);
 
             const label = document.createElement('span');
@@ -294,28 +324,27 @@
         noteInput.onblur = saveCurrentNote;
 
         document.getElementById('exportPdf').onclick = () => {
+            if (!fileStructure) return alert("請先選擇資料夾！");
+            
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            doc.setFontSize(18);
-            doc.text("File Tree Report", 20, 20);
+            doc.setFontSize(16);
+            doc.text("檔案樹狀結構報告", 20, 20);
             
             let y = 30;
             const printNode = (node, depth) => {
                 if (y > 280) { doc.addPage(); y = 20; }
                 const indent = "  ".repeat(depth);
-                const note = notes[node.path] ? ` [NOTE: ${notes[node.path]}]` : "";
+                const note = notes[node.path] ? ` [備註: ${notes[node.path]}]` : "";
                 doc.setFontSize(10);
                 doc.text(`${indent}${node.type === 'directory' ? '+' : '-'} ${node.name}${note}`, 20, y);
                 y += 7;
                 if (node.children) node.children.forEach(c => printNode(c, depth + 1));
             };
             
-            if (fileStructure) {
-                printNode(fileStructure, 0);
-                doc.save("file-tree-report.pdf");
-            } else {
-                alert("請先選擇資料夾！");
-            }
+            printNode(fileStructure, 0);
+            doc.save("file-tree-report.pdf");
+            setStatus("PDF 下載成功", "success");
         };
     </script>
 </body>
