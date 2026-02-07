@@ -4,7 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>檔案樹狀檢視與備註 (Pure Web)</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- 使用 html2pdf.js 解決中文亂碼並還原 ReportLab 樣式 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
             font-family: "Segoe UI", "Microsoft JhengHei", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -56,8 +57,6 @@
         .panel-actions { display: flex; align-items: center; gap: 0.85rem; flex-wrap: wrap; }
 
         #statusMessage { min-height: 1.25rem; font-size: 0.9rem; color: #2563eb; }
-        #statusMessage[data-state="error"] { color: #dc2626; }
-        #statusMessage[data-state="success"] { color: #16a34a; }
 
         #treeContainer { flex: 1; overflow: auto; padding-right: 0.25rem; }
 
@@ -84,8 +83,8 @@
             background-repeat: no-repeat; background-position: center; background-size: contain; margin-right: 0.15rem;
         }
 
-        .tree-icon.icon-folder { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M3 7.5h6.2c.5 0 .9.3 1.1.7l.5 1c.2.5.6.8 1.1.8H21c.6 0 1 .4 1 1v6.5c0 .8-.7 1.5-1.5 1.5h-17C2.7 19 2 18.3 2 17.5v-9C2 7.8 2.4 7.5 3 7.5Z' fill='%23facc15' stroke='%23d97706' stroke-width='1.5'/%3E%3Cpath d='M3 8.8h18' stroke='%23d97706' stroke-width='1.2'/%3E%3C/svg%3E"); }
-        .tree-icon.icon-file-default { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 3h7l5 5v12.5c0 .8-.7 1.5-1.5 1.5h-10C5.7 22 5 21.3 5 20.5v-16C5 3.7 5.7 3 6.5 3Z' fill='%23c7d2fe' stroke='%234f46e5' stroke-width='1.4'/%3E%3Cpath d='M13 3v5h5' stroke='%234f46e5' stroke-width='1.2'/%3E%3C/svg%3E"); }
+        .icon-folder { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M3 7.5h6.2c.5 0 .9.3 1.1.7l.5 1c.2.5.6.8 1.1.8H21c.6 0 1 .4 1 1v6.5c0 .8-.7 1.5-1.5 1.5h-17C2.7 19 2 18.3 2 17.5v-9C2 7.8 2.4 7.5 3 7.5Z' fill='%23facc15' stroke='%23d97706' stroke-width='1.5'/%3E%3Cpath d='M3 8.8h18' stroke='%23d97706' stroke-width='1.2'/%3E%3C/svg%3E"); }
+        .icon-file-default { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M6 3h7l5 5v12.5c0 .8-.7 1.5-1.5 1.5h-10C5.7 22 5 21.3 5 20.5v-16C5 3.7 5.7 3 6.5 3Z' fill='%23c7d2fe' stroke='%234f46e5' stroke-width='1.4'/%3E%3Cpath d='M13 3v5h5' stroke='%234f46e5' stroke-width='1.2'/%3E%3C/svg%3E"); }
 
         .tree-toggle { border: none; background: transparent; color: #1d4ed8; cursor: pointer; font-size: 0.85rem; width: 1.5rem; }
         .tree-node.collapsed > ul { display: none; }
@@ -97,8 +96,6 @@
         .label { width: 90px; font-weight: 600; color: #475569; }
         .code { font-family: "Consolas", monospace; background: #f1f5f9; padding: 0.1rem 0.35rem; border-radius: 6px; word-break: break-all; }
 
-        form#noteForm { display: flex; flex-direction: column; gap: 0.5rem; }
-
         textarea {
             resize: vertical; border-radius: 10px; border: 1px solid #cbd5f5;
             padding: 0.65rem; font-size: 1rem; font-family: inherit; background: #f8fafc;
@@ -106,22 +103,15 @@
         }
         textarea:focus { border-color: #2563eb; outline: none; background: #fff; }
 
-        .form-actions { display: flex; justify-content: flex-end; }
-        button { border-radius: 999px; border: 1px solid #cbd5f5; background: #fff; padding: 0.35rem 1.1rem; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
-        button.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        button:not(:disabled):hover { background: rgba(37, 99, 235, 0.08); }
-        button.primary:not(:disabled):hover { background: #1d4ed8; }
+        button.primary { background: #2563eb; color: #fff; border-radius: 999px; border: 1px solid #2563eb; padding: 0.35rem 1.1rem; font-size: 0.9rem; cursor: pointer; }
 
-        footer { padding: 0.75rem 2rem 1.25rem; font-size: 0.9rem; color: #475569; }
+        /* PDF 輸出專用樣式 (隱藏) */
+        #pdf-template { background: white; padding: 40px; color: black; font-size: 12px; }
+        .pdf-row { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 5px 0; align-items: center; }
+        .pdf-tree-line { font-family: monospace; white-space: pre; }
+        .pdf-note-box { background: #fff9db; border: 1px solid #fab005; padding: 4px 8px; border-radius: 4px; font-size: 11px; max-width: 40%; word-break: break-all; }
 
         input[type="file"] { display: none; }
-
-        @media (max-width: 900px) {
-            main.layout { flex-direction: column; }
-            .tree-panel { max-width: none; }
-            header { flex-direction: column; align-items: flex-start; }
-        }
     </style>
 </head>
 <body>
@@ -134,77 +124,49 @@
           <input type="file" id="dirInput" webkitdirectory directory />
         </p>
       </div>
-      <button id="exportPdf" type="button" class="primary">
-        輸出 PDF
-      </button>
+      <button id="exportPdf" type="button" class="primary">輸出 PDF</button>
     </header>
 
     <main class="layout">
       <section class="panel tree-panel">
-        <div class="panel-header">
-          <h2>資料夾樹狀</h2>
-          <div class="panel-actions">
-            <span id="statusMessage" aria-live="polite"></span>
-          </div>
-        </div>
+        <div class="panel-header"><h2>資料夾樹狀</h2><span id="statusMessage"></span></div>
         <div id="treeContainer">
           <ul id="treeRoot" class="tree"></ul>
         </div>
       </section>
-
       <section class="panel detail-panel">
-        <div class="panel-header">
-          <h2>備註編輯</h2>
-        </div>
+        <div class="panel-header"><h2>備註編輯</h2></div>
         <div id="detailBody">
           <p class="placeholder">請先在左側選擇檔案或資料夾。</p>
           <div class="detail-grid hidden" id="detailGrid">
-            <div class="detail-row">
-              <span class="label">名稱</span>
-              <span id="detailName"></span>
-            </div>
-            <div class="detail-row">
-              <span class="label">相對路徑</span>
-              <span id="detailPath" class="code"></span>
-            </div>
-            <form id="noteForm">
-              <label for="noteInput">備註內容</label>
-              <textarea
-                id="noteInput"
-                name="note"
-                rows="8"
-                placeholder="在此輸入註解，離開即自動儲存。"
-              ></textarea>
-            </form>
+            <div class="detail-row"><span class="label">名稱</span><span id="detailName"></span></div>
+            <div class="detail-row"><span class="label">相對路徑</span><span id="detailPath" class="code"></span></div>
+            <label for="noteInput">備註內容</label>
+            <textarea id="noteInput" rows="8" placeholder="在此輸入註解，離開即自動儲存。"></textarea>
           </div>
         </div>
       </section>
     </main>
 
-    <footer>
-      <p>
-        說明：此工具純網頁運行，使用 LocalStorage 儲存備註，支援匯出 PDF（含備註）。
-      </p>
-    </footer>
+    <!-- 隱藏的 PDF 渲染模板 -->
+    <div id="pdf-export-container" style="display:none;">
+        <div id="pdf-content">
+            <h1 style="border-bottom: 2px solid #1f5eff; padding-bottom: 10px;">檔案樹狀結構報告</h1>
+            <p style="font-size: 12px; color: #666;">生成時間：<span id="pdf-date"></span></p>
+            <div id="pdf-rows"></div>
+        </div>
+    </div>
 
     <script>
         const treeRoot = document.getElementById('treeRoot');
         const dirInput = document.getElementById('dirInput');
         const rootPathLabel = document.getElementById('rootPathLabel');
         const detailGrid = document.getElementById('detailGrid');
-        const detailBody = document.getElementById('detailBody');
         const noteInput = document.getElementById('noteInput');
-        const statusEl = document.getElementById('statusMessage');
         
         let fileStructure = null;
         let selectedNode = null;
         let notes = JSON.parse(localStorage.getItem('pure-web-tree-notes') || '{}');
-
-        function setStatus(msg, type = 'info') {
-            statusEl.textContent = msg;
-            statusEl.setAttribute('data-state', type);
-            setTimeout(() => { statusEl.textContent = ''; }, 3000);
-        }
 
         dirInput.onchange = (e) => {
             const files = e.target.files;
@@ -214,7 +176,6 @@
             buildTree(files, rootName);
             renderTree();
             document.querySelector('.placeholder').classList.add('hidden');
-            setStatus("檔案載入成功", "success");
         };
 
         function buildTree(files, rootName) {
@@ -223,30 +184,19 @@
                 const pathParts = files[i].webkitRelativePath.split('/');
                 let current = fileStructure;
                 let currentPath = rootName;
-                
                 for (let j = 1; j < pathParts.length; j++) {
                     const name = pathParts[j];
                     currentPath += "/" + name;
                     let node = current.children.find(c => c.name === name);
                     if (!node) {
-                        node = { 
-                            name, 
-                            type: j === pathParts.length - 1 ? 'file' : 'directory', 
-                            children: [], 
-                            path: currentPath 
-                        };
+                        node = { name, type: j === pathParts.length - 1 ? 'file' : 'directory', children: [], path: currentPath };
                         current.children.push(node);
                     }
                     current = node;
                 }
             }
-            const sortNodes = (node) => {
-                if (node.children) {
-                    node.children.sort((a, b) => b.type.localeCompare(a.type) || a.name.localeCompare(b.name));
-                    node.children.forEach(sortNodes);
-                }
-            };
-            sortNodes(fileStructure);
+            const sort = (n) => { if (n.children) { n.children.sort((a,b) => b.type.localeCompare(a.type) || a.name.localeCompare(b.name)); n.children.forEach(sort); } };
+            sort(fileStructure);
         }
 
         function renderTree() {
@@ -257,44 +207,26 @@
         function createNodeEl(node) {
             const li = document.createElement('li');
             li.className = 'tree-node';
-
             const row = document.createElement('div');
             row.className = 'tree-row';
             if (notes[node.path]) row.classList.add('has-note');
-            
             const toggle = document.createElement('button');
             toggle.className = 'tree-toggle';
             toggle.innerText = node.type === 'directory' ? 'v' : ' ';
             if (node.type === 'directory') {
-                toggle.onclick = (e) => {
-                    e.stopPropagation();
-                    li.classList.toggle('collapsed');
-                    toggle.innerText = li.classList.contains('collapsed') ? '>' : 'v';
-                };
+                toggle.onclick = (e) => { e.stopPropagation(); li.classList.toggle('collapsed'); toggle.innerText = li.classList.contains('collapsed') ? '>' : 'v'; };
             }
             row.appendChild(toggle);
-
             const icon = document.createElement('span');
             icon.className = 'tree-icon ' + (node.type === 'directory' ? 'icon-folder' : 'icon-file-default');
             row.appendChild(icon);
-
             const label = document.createElement('span');
             label.className = 'tree-label';
             label.innerText = node.name;
             row.appendChild(label);
-
-            row.onclick = () => {
-                document.querySelectorAll('.tree-row').forEach(r => r.classList.remove('selected'));
-                row.classList.add('selected');
-                showDetail(node, row);
-            };
-
+            row.onclick = () => { document.querySelectorAll('.tree-row').forEach(r => r.classList.remove('selected')); row.classList.add('selected'); showDetail(node, row); };
             li.appendChild(row);
-            if (node.children && node.children.length) {
-                const ul = document.createElement('ul');
-                node.children.forEach(c => ul.appendChild(createNodeEl(c)));
-                li.appendChild(ul);
-            }
+            if (node.children) { const ul = document.createElement('ul'); node.children.forEach(c => ul.appendChild(createNodeEl(c))); li.appendChild(ul); }
             return li;
         }
 
@@ -310,13 +242,8 @@
         function saveCurrentNote() {
             if (selectedNode) {
                 const val = noteInput.value.trim();
-                if (val) {
-                    notes[selectedNode.node.path] = val;
-                    selectedNode.el.classList.add('has-note');
-                } else {
-                    delete notes[selectedNode.node.path];
-                    selectedNode.el.classList.remove('has-note');
-                }
+                if (val) { notes[selectedNode.node.path] = val; selectedNode.el.classList.add('has-note'); }
+                else { delete notes[selectedNode.node.path]; selectedNode.el.classList.remove('has-note'); }
                 localStorage.setItem('pure-web-tree-notes', JSON.stringify(notes));
             }
         }
@@ -325,26 +252,65 @@
 
         document.getElementById('exportPdf').onclick = () => {
             if (!fileStructure) return alert("請先選擇資料夾！");
-            
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.setFontSize(16);
-            doc.text("檔案樹狀結構報告", 20, 20);
-            
-            let y = 30;
-            const printNode = (node, depth) => {
-                if (y > 280) { doc.addPage(); y = 20; }
-                const indent = "  ".repeat(depth);
-                const note = notes[node.path] ? ` [備註: ${notes[node.path]}]` : "";
-                doc.setFontSize(10);
-                doc.text(`${indent}${node.type === 'directory' ? '+' : '-'} ${node.name}${note}`, 20, y);
-                y += 7;
-                if (node.children) node.children.forEach(c => printNode(c, depth + 1));
+            const rowsContainer = document.getElementById('pdf-rows');
+            rowsContainer.innerHTML = '';
+            document.getElementById('pdf-date').innerText = new Date().toLocaleString();
+
+            const process = (node, depth, isLast, prefixes) => {
+                const row = document.createElement('div');
+                row.className = 'pdf-row';
+                
+                const labelWrap = document.createElement('div');
+                labelWrap.style.display = 'flex';
+                labelWrap.style.alignItems = 'center';
+
+                const treeLine = document.createElement('span');
+                treeLine.className = 'pdf-tree-line';
+                let lineStr = "";
+                prefixes.forEach((p, idx) => { if(idx < prefixes.length - 1) lineStr += p ? "│   " : "    "; });
+                if (depth > 0) lineStr += isLast ? "└── " : "├── ";
+                treeLine.innerText = lineStr;
+                
+                const icon = document.createElement('span');
+                icon.innerText = node.type === 'directory' ? '📁 ' : '📄 ';
+                
+                const name = document.createElement('span');
+                name.innerText = node.name;
+                if(node.type === 'directory') name.style.fontWeight = 'bold';
+
+                labelWrap.appendChild(treeLine);
+                labelWrap.appendChild(icon);
+                labelWrap.appendChild(name);
+                row.appendChild(labelWrap);
+
+                if (notes[node.path]) {
+                    const noteBox = document.createElement('div');
+                    noteBox.className = 'pdf-note-box';
+                    noteBox.innerText = notes[node.path];
+                    row.appendChild(noteBox);
+                }
+
+                rowsContainer.appendChild(row);
+
+                if (node.children) {
+                    node.children.forEach((c, idx) => {
+                        const last = idx === node.children.length - 1;
+                        process(c, depth + 1, last, [...prefixes, !last]);
+                    });
+                }
             };
+
+            process(fileStructure, 0, true, []);
             
-            printNode(fileStructure, 0);
-            doc.save("file-tree-report.pdf");
-            setStatus("PDF 下載成功", "success");
+            const element = document.getElementById('pdf-content');
+            const opt = {
+                margin: 10,
+                filename: 'file-tree-report.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
         };
     </script>
 </body>
