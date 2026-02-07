@@ -4,7 +4,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>檔案樹狀檢視與備註 (Pure Web)</title>
-    <!-- 使用 html2pdf.js 解決中文亂碼並還原 ReportLab 樣式 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
@@ -99,19 +98,27 @@
         textarea {
             resize: vertical; border-radius: 10px; border: 1px solid #cbd5f5;
             padding: 0.65rem; font-size: 1rem; font-family: inherit; background: #f8fafc;
-            min-height: 160px; transition: border 0.2s, background 0.2s;
+            min-height: 200px; transition: border 0.2s, background 0.2s;
         }
         textarea:focus { border-color: #2563eb; outline: none; background: #fff; }
 
         button.primary { background: #2563eb; color: #fff; border-radius: 999px; border: 1px solid #2563eb; padding: 0.35rem 1.1rem; font-size: 0.9rem; cursor: pointer; }
 
-        /* PDF 輸出專用樣式 (隱藏) */
-        #pdf-template { background: white; padding: 40px; color: black; font-size: 12px; }
-        .pdf-row { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 5px 0; align-items: center; }
-        .pdf-tree-line { font-family: monospace; white-space: pre; }
-        .pdf-note-box { background: #fff9db; border: 1px solid #fab005; padding: 4px 8px; border-radius: 4px; font-size: 11px; max-width: 40%; word-break: break-all; }
+        /* PDF 輸出專用樣式 */
+        .pdf-report { background: white; padding: 20px; color: black; width: 800px; }
+        .pdf-title { border-bottom: 2px solid #1f5eff; padding-bottom: 10px; font-size: 24px; margin-bottom: 20px; }
+        .pdf-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .pdf-table td { padding: 4px; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
+        .pdf-col-tree { width: 65%; }
+        .pdf-col-note { width: 35%; }
+        .pdf-tree-line { font-family: "Courier New", Courier, monospace; color: #666; font-weight: bold; }
+        .pdf-note-box { 
+            background: #fffbe6; border: 1px solid #ffe58f; padding: 6px; border-radius: 4px; 
+            font-size: 11px; color: #854d0e; word-break: break-all; width: 100%; box-sizing: border-box;
+        }
 
         input[type="file"] { display: none; }
+        footer { padding: 0.75rem 2rem 1.25rem; font-size: 0.9rem; color: #475569; }
     </style>
 </head>
 <body>
@@ -148,12 +155,15 @@
       </section>
     </main>
 
-    <!-- 隱藏的 PDF 渲染模板 -->
+    <!-- 隱藏的 PDF 渲染容器 -->
     <div id="pdf-export-container" style="display:none;">
-        <div id="pdf-content">
-            <h1 style="border-bottom: 2px solid #1f5eff; padding-bottom: 10px;">檔案樹狀結構報告</h1>
-            <p style="font-size: 12px; color: #666;">生成時間：<span id="pdf-date"></span></p>
-            <div id="pdf-rows"></div>
+        <div id="pdf-report" class="pdf-report">
+            <h1 class="pdf-title">檔案樹狀結構報告</h1>
+            <p style="font-size: 12px;">根目錄：<span id="pdf-root"></span></p>
+            <p style="font-size: 12px; color: #666; margin-bottom: 20px;">生成時間：<span id="pdf-date"></span></p>
+            <table class="pdf-table">
+                <tbody id="pdf-rows"></tbody>
+            </table>
         </div>
     </div>
 
@@ -162,6 +172,7 @@
         const dirInput = document.getElementById('dirInput');
         const rootPathLabel = document.getElementById('rootPathLabel');
         const detailGrid = document.getElementById('detailGrid');
+        const detailBody = document.getElementById('detailBody');
         const noteInput = document.getElementById('noteInput');
         
         let fileStructure = null;
@@ -252,45 +263,48 @@
 
         document.getElementById('exportPdf').onclick = () => {
             if (!fileStructure) return alert("請先選擇資料夾！");
+            saveCurrentNote(); // 確保最後的編輯被儲存
+            
             const rowsContainer = document.getElementById('pdf-rows');
             rowsContainer.innerHTML = '';
             document.getElementById('pdf-date').innerText = new Date().toLocaleString();
+            document.getElementById('pdf-root').innerText = rootPathLabel.innerText;
 
             const process = (node, depth, isLast, prefixes) => {
-                const row = document.createElement('div');
-                row.className = 'pdf-row';
+                const tr = document.createElement('tr');
                 
-                const labelWrap = document.createElement('div');
-                labelWrap.style.display = 'flex';
-                labelWrap.style.alignItems = 'center';
-
-                const treeLine = document.createElement('span');
-                treeLine.className = 'pdf-tree-line';
+                // 樹狀與名稱欄
+                const tdTree = document.createElement('td');
+                tdTree.className = 'pdf-col-tree';
+                
                 let lineStr = "";
                 prefixes.forEach((p, idx) => { if(idx < prefixes.length - 1) lineStr += p ? "│   " : "    "; });
                 if (depth > 0) lineStr += isLast ? "└── " : "├── ";
-                treeLine.innerText = lineStr;
                 
-                const icon = document.createElement('span');
-                icon.innerText = node.type === 'directory' ? '📁 ' : '📄 ';
+                const spanLine = document.createElement('span');
+                spanLine.className = 'pdf-tree-line';
+                spanLine.innerText = lineStr;
                 
-                const name = document.createElement('span');
-                name.innerText = node.name;
-                if(node.type === 'directory') name.style.fontWeight = 'bold';
+                const spanName = document.createElement('span');
+                spanName.innerText = (node.type === 'directory' ? '📁 ' : '📄 ') + node.name;
+                if(node.type === 'directory') spanName.style.fontWeight = 'bold';
 
-                labelWrap.appendChild(treeLine);
-                labelWrap.appendChild(icon);
-                labelWrap.appendChild(name);
-                row.appendChild(labelWrap);
+                tdTree.appendChild(spanLine);
+                tdTree.appendChild(spanName);
+                tr.appendChild(tdTree);
 
+                // 備註欄
+                const tdNote = document.createElement('td');
+                tdNote.className = 'pdf-col-note';
                 if (notes[node.path]) {
                     const noteBox = document.createElement('div');
                     noteBox.className = 'pdf-note-box';
                     noteBox.innerText = notes[node.path];
-                    row.appendChild(noteBox);
+                    tdNote.appendChild(noteBox);
                 }
+                tr.appendChild(tdNote);
 
-                rowsContainer.appendChild(row);
+                rowsContainer.appendChild(tr);
 
                 if (node.children) {
                     node.children.forEach((c, idx) => {
@@ -302,13 +316,14 @@
 
             process(fileStructure, 0, true, []);
             
-            const element = document.getElementById('pdf-content');
+            const element = document.getElementById('pdf-report');
             const opt = {
                 margin: 10,
                 filename: 'file-tree-report.pdf',
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
             };
             html2pdf().set(opt).from(element).save();
         };
